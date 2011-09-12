@@ -1,0 +1,1 @@
+cmd_drivers/staging/brcm80211/brcmsmac/brcmsmac.ko := ld -r -m elf_i386 -T /home2/rvossen/open_source_driver/problems/fifo_error_after_days.pedram/linux-3.0.3/scripts/module-common.lds --build-id  -o drivers/staging/brcm80211/brcmsmac/brcmsmac.ko drivers/staging/brcm80211/brcmsmac/brcmsmac.o drivers/staging/brcm80211/brcmsmac/brcmsmac.mod.o

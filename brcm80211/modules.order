@@ -1,0 +1,3 @@
+kernel/drivers/staging/brcm80211/util/brcmutil.ko
+kernel/drivers/staging/brcm80211/brcmfmac/brcmfmac.ko
+kernel/drivers/staging/brcm80211/brcmsmac/brcmsmac.ko
