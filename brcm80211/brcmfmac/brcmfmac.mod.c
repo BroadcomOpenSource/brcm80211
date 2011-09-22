@@ -21,8 +21,4 @@ __used
 __attribute__((section(".modinfo"))) =
 "depends=mmc_core,brcmutil";
 
-MODULE_ALIAS("sdio:c*v02D0d0000*");
-MODULE_ALIAS("sdio:c*v02D0d0492*");
-MODULE_ALIAS("sdio:c*v02D0d0493*");
 MODULE_ALIAS("sdio:c*v02D0d4329*");
-MODULE_ALIAS("sdio:c*v02D0d4319*");

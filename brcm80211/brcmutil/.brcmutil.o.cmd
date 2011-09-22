@@ -1,0 +1,1 @@
+cmd_drivers/staging/brcm80211/brcmutil/brcmutil.o := ld -m elf_i386   -r -o drivers/staging/brcm80211/brcmutil/brcmutil.o drivers/staging/brcm80211/brcmutil/utils.o drivers/staging/brcm80211/brcmutil/wifi.o 

@@ -14,43 +14,15 @@
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifndef	_aiutils_h_
-#define	_aiutils_h_
+#ifndef	_BRCM_AIUTILS_H_
+#define	_BRCM_AIUTILS_H_
 
-/* cpp contortions to concatenate w/arg prescan */
-#ifndef PAD
-#define	_PADLINE(line)	pad ## line
-#define	_XSTR(line)	_PADLINE(line)
-#define	PAD		_XSTR(__LINE__)
-#endif
-
-/* Include the soci specific files */
-#include <aidmp.h>
+#include "types.h"
 
 /*
  * SOC Interconnect Address Map.
  * All regions may not exist on all chips.
  */
-/* Physical SDRAM */
-#define SI_SDRAM_BASE		0x00000000
-/* Host Mode sb2pcitranslation0 (64 MB) */
-#define SI_PCI_MEM		0x08000000
-#define SI_PCI_MEM_SZ		(64 * 1024 * 1024)
-/* Host Mode sb2pcitranslation1 (64 MB) */
-#define SI_PCI_CFG		0x0c000000
-/* Byteswapped Physical SDRAM */
-#define	SI_SDRAM_SWAPPED	0x10000000
-/* Region 2 for sdram (512 MB) */
-#define SI_SDRAM_R2		0x80000000
-
-#ifdef SI_ENUM_BASE_VARIABLE
-#define SI_ENUM_BASE		(sii->pub.si_enum_base)
-#else
-#define SI_ENUM_BASE		0x18000000	/* Enumeration space base */
-#endif				/* SI_ENUM_BASE_VARIABLE */
-
-/* Wrapper space base */
-#define SI_WRAP_BASE		0x18100000
 /* each core gets 4Kbytes for registers */
 #define SI_CORE_SIZE		0x1000
 /*
@@ -60,39 +32,9 @@
  */
 #define	SI_MAXCORES		16
 
-/* On-chip RAM on chips that also have DDR */
-#define	SI_FASTRAM		0x19000000
-#define	SI_FASTRAM_SWAPPED	0x19800000
-
-/* Flash Region 2 (region 1 shadowed here) */
-#define	SI_FLASH2		0x1c000000
-/* Size of Flash Region 2 */
-#define	SI_FLASH2_SZ		0x02000000
-/* ARM Cortex-M3 ROM */
-#define	SI_ARMCM3_ROM		0x1e000000
-/* MIPS Flash Region 1 */
-#define	SI_FLASH1		0x1fc00000
-/* MIPS Size of Flash Region 1 */
-#define	SI_FLASH1_SZ		0x00400000
-/* ARM7TDMI-S ROM */
-#define	SI_ARM7S_ROM		0x20000000
-/* ARM Cortex-M3 SRAM Region 2 */
-#define	SI_ARMCM3_SRAM2		0x60000000
-/* ARM7TDMI-S SRAM Region 2 */
-#define	SI_ARM7S_SRAM2		0x80000000
-/* ARM Flash Region 1 */
-#define	SI_ARM_FLASH1		0xffff0000
-/* ARM Size of Flash Region 1 */
-#define	SI_ARM_FLASH1_SZ	0x00010000
-
-/* Client Mode sb2pcitranslation2 (1 GB) */
-#define SI_PCI_DMA		0x40000000
-/* Client Mode sb2pcitranslation2 (1 GB) */
-#define SI_PCI_DMA2		0x80000000
 /* Client Mode sb2pcitranslation2 size in bytes */
 #define SI_PCI_DMA_SZ		0x40000000
-/* PCIE Client Mode sb2pcitranslation2 (2 ZettaBytes), low 32 bits */
-#define SI_PCIE_DMA_L32		0x00000000
+
 /* PCIE Client Mode sb2pcitranslation2 (2 ZettaBytes), high 32 bits */
 #define SI_PCIE_DMA_H32		0x80000000
 
@@ -158,9 +100,7 @@
 					 * maps all unused address ranges
 					 */
 
-/* There are TWO constants on all HND chips: SI_ENUM_BASE above,
- * and chipcommon being the first core:
- */
+/* chipcommon being the first core: */
 #define	SI_CC_IDX		0
 
 /* SOC Interconnect types (aka chip types) */
@@ -213,51 +153,24 @@
 /* Minumum amount of flash we support */
 #define FLASH_MIN		0x00020000	/* Minimum flash size */
 
-/* A boot/binary may have an embedded block that describes its size  */
-#define	BISZ_OFFSET		0x3e0	/* At this offset into the binary */
-#define	BISZ_MAGIC		0x4249535a	/* Marked with value: 'BISZ' */
-#define	BISZ_MAGIC_IDX		0	/* Word 0: magic */
-#define	BISZ_TXTST_IDX		1	/*      1: text start */
-#define	BISZ_TXTEND_IDX		2	/*      2: text end */
-#define	BISZ_DATAST_IDX		3	/*      3: data start */
-#define	BISZ_DATAEND_IDX	4	/*      4: data end */
-#define	BISZ_BSSST_IDX		5	/*      5: bss start */
-#define	BISZ_BSSEND_IDX		6	/*      6: bss end */
-#define BISZ_SIZE		7	/* descriptor size in 32-bit integers */
+#define	CC_SROM_OTP		0x800	/* SROM/OTP address space */
 
-#define	SI_INFO(sih)	(si_info_t *)sih
+/* gpiotimerval */
+#define GPIO_ONTIME_SHIFT	16
 
-#define	GOODCOREADDR(x, b) \
-	(((x) >= (b)) && ((x) < ((b) + SI_MAXCORES * SI_CORE_SIZE)) && \
-		IS_ALIGNED((x), SI_CORE_SIZE))
-#define	GOODREGS(regs) \
-	((regs) != NULL && IS_ALIGNED((unsigned long)(regs), SI_CORE_SIZE))
-#define BADCOREADDR	0
-#define	GOODIDX(idx)	(((uint)idx) < SI_MAXCORES)
-#define	NOREV		-1	/* Invalid rev */
+/* Fields in clkdiv */
+#define	CLKD_OTP		0x000f0000
+#define	CLKD_OTP_SHIFT		16
 
-/* Newer chips can access PCI/PCIE and CC core without requiring to change
- * PCI BAR0 WIN
- */
-#define SI_FAST(si) (((si)->pub.buscoretype == PCIE_CORE_ID) ||	\
-		     (((si)->pub.buscoretype == PCI_CORE_ID) && \
-		      (si)->pub.buscorerev >= 13))
+/* Package IDs */
+#define	BCM4717_PKG_ID		9	/* 4717 package id */
+#define	BCM4718_PKG_ID		10	/* 4718 package id */
+#define BCM43224_FAB_SMIC	0xa	/* the chip is manufactured by SMIC */
 
-#define PCIEREGS(si) (((char *)((si)->curmap) + PCI_16KB0_PCIREGS_OFFSET))
-#define CCREGS_FAST(si) (((char *)((si)->curmap) + PCI_16KB0_CCREGS_OFFSET))
-
-/*
- * Macros to disable/restore function core(D11, ENET, ILINE20, etc) interrupts
- * before after core switching to avoid invalid register accesss inside ISR.
- */
-#define INTR_OFF(si, intr_val) \
-	if ((si)->intrsoff_fn && \
-	    (si)->coreid[(si)->curidx] == (si)->dev_coreid) \
-		intr_val = (*(si)->intrsoff_fn)((si)->intr_arg)
-#define INTR_RESTORE(si, intr_val) \
-	if ((si)->intrsrestore_fn && \
-	    (si)->coreid[(si)->curidx] == (si)->dev_coreid) \
-		(*(si)->intrsrestore_fn)((si)->intr_arg, intr_val)
+/* these are router chips */
+#define	BCM4716_CHIP_ID		0x4716	/* 4716 chipcommon chipid */
+#define	BCM47162_CHIP_ID	47162	/* 47162 chipcommon chipid */
+#define	BCM4748_CHIP_ID		0x4748	/* 4716 chipcommon chipid (OTP, RBBU) */
 
 /* dynamic clock control defines */
 #define	LPOMINFREQ		25000	/* low power oscillator min */
@@ -269,67 +182,6 @@
 
 #define	ILP_DIV_5MHZ		0	/* ILP = 5 MHz */
 #define	ILP_DIV_1MHZ		4	/* ILP = 1 MHz */
-
-#define PCI(si)		(((si)->pub.bustype == PCI_BUS) &&	\
-			 ((si)->pub.buscoretype == PCI_CORE_ID))
-#define PCIE(si)	(((si)->pub.bustype == PCI_BUS) &&	\
-			 ((si)->pub.buscoretype == PCIE_CORE_ID))
-#define PCI_FORCEHT(si)	\
-	(PCIE(si) && (si->pub.chip == BCM4716_CHIP_ID))
-
-/* GPIO Based LED powersave defines */
-#define DEFAULT_GPIO_ONTIME	10	/* Default: 10% on */
-#define DEFAULT_GPIO_OFFTIME	90	/* Default: 10% on */
-
-#ifndef DEFAULT_GPIOTIMERVAL
-#define DEFAULT_GPIOTIMERVAL \
-	((DEFAULT_GPIO_ONTIME << GPIO_ONTIME_SHIFT) | DEFAULT_GPIO_OFFTIME)
-#endif
-
-/*
- * Data structure to export all chip specific common variables
- *   public (read-only) portion of aiutils handle returned by si_attach()
- */
-struct si_pub {
-	uint bustype;		/* SI_BUS, PCI_BUS */
-	uint buscoretype;	/* PCI_CORE_ID, PCIE_CORE_ID, PCMCIA_CORE_ID */
-	uint buscorerev;	/* buscore rev */
-	uint buscoreidx;	/* buscore index */
-	int ccrev;		/* chip common core rev */
-	u32 cccaps;		/* chip common capabilities */
-	u32 cccaps_ext;	/* chip common capabilities extension */
-	int pmurev;		/* pmu core rev */
-	u32 pmucaps;		/* pmu capabilities */
-	uint boardtype;		/* board type */
-	uint boardvendor;	/* board vendor */
-	uint boardflags;	/* board flags */
-	uint boardflags2;	/* board flags2 */
-	uint chip;		/* chip number */
-	uint chiprev;		/* chip revision */
-	uint chippkg;		/* chip package option */
-	u32 chipst;		/* chip status */
-	bool issim;		/* chip is in simulation or emulation */
-	uint socirev;		/* SOC interconnect rev */
-	bool pci_pr32414;
-
-};
-
-/*
- * for HIGH_ONLY driver, the si_t must be writable to allow states sync from
- * BMAC to HIGH driver for monolithic driver, it is readonly to prevent accident
- * change
- */
-typedef const struct si_pub si_t;
-
-/*
- * Many of the routines below take an 'sih' handle as their first arg.
- * Allocate this by calling si_attach().  Free it by calling si_detach().
- * At any one time, the sih is logically focused on one particular si core
- * (the "current core").
- * Use si_setcore() or si_setcoreidx() to change the association to another core
- */
-
-#define	BADIDX		(SI_MAXCORES + 1)
 
 /* clkctl xtal what flags */
 #define	XTAL			0x1	/* primary crystal oscillator (2050) */
@@ -363,76 +215,62 @@ typedef const struct si_pub si_t;
 #define SI_PCIDOWN	2
 #define SI_PCIUP	3
 
-#define	ISSIM_ENAB(sih)	0
+/*
+ * Data structure to export all chip specific common variables
+ *   public (read-only) portion of aiutils handle returned by si_attach()
+ */
+struct si_pub {
+	uint buscoretype;	/* PCI_CORE_ID, PCIE_CORE_ID, PCMCIA_CORE_ID */
+	uint buscorerev;	/* buscore rev */
+	uint buscoreidx;	/* buscore index */
+	int ccrev;		/* chip common core rev */
+	u32 cccaps;		/* chip common capabilities */
+	u32 cccaps_ext;	/* chip common capabilities extension */
+	int pmurev;		/* pmu core rev */
+	u32 pmucaps;		/* pmu capabilities */
+	uint boardtype;		/* board type */
+	uint boardvendor;	/* board vendor */
+	uint boardflags;	/* board flags */
+	uint boardflags2;	/* board flags2 */
+	uint chip;		/* chip number */
+	uint chiprev;		/* chip revision */
+	uint chippkg;		/* chip package option */
+	u32 chipst;		/* chip status */
+	bool issim;		/* chip is in simulation or emulation */
+	uint socirev;		/* SOC interconnect rev */
+	bool pci_pr32414;
 
-/* PMU clock/power control */
-#if defined(BCMPMUCTL)
-#define PMUCTL_ENAB(sih)	(BCMPMUCTL)
-#else
-#define PMUCTL_ENAB(sih)	((sih)->cccaps & CC_CAP_PMU)
-#endif
+};
 
-/* chipcommon clock/power control (exclusive with PMU's) */
-#if defined(BCMPMUCTL) && BCMPMUCTL
-#define CCCTL_ENAB(sih)		(0)
-#define CCPLL_ENAB(sih)		(0)
-#else
-#define CCCTL_ENAB(sih)		((sih)->cccaps & CC_CAP_PWR_CTL)
-#define CCPLL_ENAB(sih)		((sih)->cccaps & CC_CAP_PLL_MASK)
-#endif
+struct pci_dev;
 
-typedef void (*gpio_handler_t) (u32 stat, void *arg);
-
-/* External PA enable mask */
-#define GPIO_CTRL_EPA_EN_MASK 0x40
-
-#define	SI_ERROR(args)
-
-#ifdef BCMDBG
-#define	SI_MSG(args)	printk args
-#else
-#define	SI_MSG(args)
-#endif				/* BCMDBG */
-
-/* Define SI_VMSG to printf for verbose debugging, but don't check it in */
-#define	SI_VMSG(args)
-
-#define	IS_SIM(chippkg)	\
-	((chippkg == HDLSIM_PKG_ID) || (chippkg == HWSIM_PKG_ID))
-
-typedef u32(*si_intrsoff_t) (void *intr_arg);
-typedef void (*si_intrsrestore_t) (void *intr_arg, u32 arg);
-typedef bool(*si_intrsenabled_t) (void *intr_arg);
-
-typedef struct gpioh_item {
+struct gpioh_item {
 	void *arg;
 	bool level;
-	gpio_handler_t handler;
+	void (*handler) (u32 stat, void *arg);
 	u32 event;
 	struct gpioh_item *next;
-} gpioh_item_t;
+};
 
 /* misc si info needed by some of the routines */
-typedef struct si_info {
+struct si_info {
 	struct si_pub pub;	/* back plane public state (must be first) */
-	void *pbus;		/* handle to bus (pci/sdio/..) */
+	struct pci_dev *pbus;	/* handle to pci bus */
 	uint dev_coreid;	/* the core provides driver functions */
 	void *intr_arg;		/* interrupt callback function arg */
-	si_intrsoff_t intrsoff_fn;	/* turns chip interrupts off */
-	si_intrsrestore_t intrsrestore_fn; /* restore chip interrupts */
-	si_intrsenabled_t intrsenabled_fn; /* check if interrupts are enabled */
+	u32 (*intrsoff_fn) (void *intr_arg); /* turns chip interrupts off */
+	/* restore chip interrupts */
+	void (*intrsrestore_fn) (void *intr_arg, u32 arg);
+	/* check if interrupts are enabled */
+	bool (*intrsenabled_fn) (void *intr_arg);
 
-	void *pch;		/* PCI/E core handle */
-
-	gpioh_item_t *gpioh_head;	/* GPIO event handlers list */
-
-	bool memseg;		/* flag to toggle MEM_SEG register */
+	struct pcicore_info *pch; /* PCI/E core handle */
 
 	char *vars;
 	uint varsz;
 
-	void *curmap;		/* current regs va */
-	void *regs[SI_MAXCORES];	/* other regs va */
+	void __iomem *curmap;			/* current regs va */
+	void __iomem *regs[SI_MAXCORES];	/* other regs va */
 
 	uint curidx;		/* current core index */
 	uint numcores;		/* # discovered cores */
@@ -450,97 +288,93 @@ typedef struct si_info {
 	u32 cia[SI_MAXCORES];	/* erom cia entry for each core */
 	u32 cib[SI_MAXCORES];	/* erom cia entry for each core */
 	u32 oob_router;	/* oob router registers for axi */
-} si_info_t;
+};
+
+/*
+ * Many of the routines below take an 'sih' handle as their first arg.
+ * Allocate this by calling si_attach().  Free it by calling si_detach().
+ * At any one time, the sih is logically focused on one particular si core
+ * (the "current core").
+ * Use si_setcore() or si_setcoreidx() to change the association to another core
+ */
+
 
 /* AMBA Interconnect exported externs */
-extern void ai_scan(si_t *sih, void *regs, uint devid);
-
-extern uint ai_flag(si_t *sih);
-extern void ai_setint(si_t *sih, int siflag);
-extern uint ai_coreidx(si_t *sih);
-extern uint ai_corevendor(si_t *sih);
-extern uint ai_corerev(si_t *sih);
-extern bool ai_iscoreup(si_t *sih);
-extern void *ai_setcoreidx(si_t *sih, uint coreidx);
-extern u32 ai_core_cflags(si_t *sih, u32 mask, u32 val);
-extern void ai_core_cflags_wo(si_t *sih, u32 mask, u32 val);
-extern u32 ai_core_sflags(si_t *sih, u32 mask, u32 val);
-extern uint ai_corereg(si_t *sih, uint coreidx, uint regoff, uint mask,
+extern uint ai_flag(struct si_pub *sih);
+extern void ai_setint(struct si_pub *sih, int siflag);
+extern uint ai_coreidx(struct si_pub *sih);
+extern uint ai_corevendor(struct si_pub *sih);
+extern uint ai_corerev(struct si_pub *sih);
+extern bool ai_iscoreup(struct si_pub *sih);
+extern u32 ai_core_cflags(struct si_pub *sih, u32 mask, u32 val);
+extern void ai_core_cflags_wo(struct si_pub *sih, u32 mask, u32 val);
+extern u32 ai_core_sflags(struct si_pub *sih, u32 mask, u32 val);
+extern uint ai_corereg(struct si_pub *sih, uint coreidx, uint regoff, uint mask,
 		       uint val);
-extern void ai_core_reset(si_t *sih, u32 bits, u32 resetbits);
-extern void ai_core_disable(si_t *sih, u32 bits);
-extern int ai_numaddrspaces(si_t *sih);
-extern u32 ai_addrspace(si_t *sih, uint asidx);
-extern u32 ai_addrspacesize(si_t *sih, uint asidx);
-extern void ai_write_wrap_reg(si_t *sih, u32 offset, u32 val);
+extern void ai_core_reset(struct si_pub *sih, u32 bits, u32 resetbits);
+extern void ai_core_disable(struct si_pub *sih, u32 bits);
+extern int ai_numaddrspaces(struct si_pub *sih);
+extern u32 ai_addrspace(struct si_pub *sih, uint asidx);
+extern u32 ai_addrspacesize(struct si_pub *sih, uint asidx);
+extern void ai_write_wrap_reg(struct si_pub *sih, u32 offset, u32 val);
 
 /* === exported functions === */
-extern si_t *ai_attach(uint pcidev, void *regs, uint bustype,
-		       void *sdh, char **vars, uint *varsz);
-
-extern void ai_detach(si_t *sih);
-extern bool ai_pci_war16165(si_t *sih);
-
-extern uint ai_coreid(si_t *sih);
-extern uint ai_corerev(si_t *sih);
-extern uint ai_corereg(si_t *sih, uint coreidx, uint regoff, uint mask,
+extern struct si_pub *ai_attach(void __iomem *regs, struct pci_dev *sdh,
+				char **vars, uint *varsz);
+extern void ai_detach(struct si_pub *sih);
+extern uint ai_coreid(struct si_pub *sih);
+extern uint ai_corerev(struct si_pub *sih);
+extern uint ai_corereg(struct si_pub *sih, uint coreidx, uint regoff, uint mask,
 		uint val);
-extern void ai_write_wrapperreg(si_t *sih, u32 offset, u32 val);
-extern u32 ai_core_cflags(si_t *sih, u32 mask, u32 val);
-extern u32 ai_core_sflags(si_t *sih, u32 mask, u32 val);
-extern bool ai_iscoreup(si_t *sih);
-extern uint ai_findcoreidx(si_t *sih, uint coreid, uint coreunit);
-extern void *ai_setcoreidx(si_t *sih, uint coreidx);
-extern void *ai_setcore(si_t *sih, uint coreid, uint coreunit);
-extern void *ai_switch_core(si_t *sih, uint coreid, uint *origidx,
-			    uint *intr_val);
-extern void ai_restore_core(si_t *sih, uint coreid, uint intr_val);
-extern void ai_core_reset(si_t *sih, u32 bits, u32 resetbits);
-extern void ai_core_disable(si_t *sih, u32 bits);
-extern u32 ai_alp_clock(si_t *sih);
-extern u32 ai_ilp_clock(si_t *sih);
-extern void ai_pci_setup(si_t *sih, uint coremask);
-extern void ai_setint(si_t *sih, int siflag);
-extern bool ai_backplane64(si_t *sih);
-extern void ai_register_intr_callback(si_t *sih, void *intrsoff_fn,
+extern void ai_write_wrapperreg(struct si_pub *sih, u32 offset, u32 val);
+extern u32 ai_core_cflags(struct si_pub *sih, u32 mask, u32 val);
+extern u32 ai_core_sflags(struct si_pub *sih, u32 mask, u32 val);
+extern bool ai_iscoreup(struct si_pub *sih);
+extern uint ai_findcoreidx(struct si_pub *sih, uint coreid, uint coreunit);
+extern void __iomem *ai_setcoreidx(struct si_pub *sih, uint coreidx);
+extern void __iomem *ai_setcore(struct si_pub *sih, uint coreid, uint coreunit);
+extern void __iomem *ai_switch_core(struct si_pub *sih, uint coreid,
+				    uint *origidx, uint *intr_val);
+extern void ai_restore_core(struct si_pub *sih, uint coreid, uint intr_val);
+extern void ai_core_reset(struct si_pub *sih, u32 bits, u32 resetbits);
+extern void ai_core_disable(struct si_pub *sih, u32 bits);
+extern u32 ai_alp_clock(struct si_pub *sih);
+extern u32 ai_ilp_clock(struct si_pub *sih);
+extern void ai_pci_setup(struct si_pub *sih, uint coremask);
+extern void ai_setint(struct si_pub *sih, int siflag);
+extern bool ai_backplane64(struct si_pub *sih);
+extern void ai_register_intr_callback(struct si_pub *sih, void *intrsoff_fn,
 				      void *intrsrestore_fn,
 				      void *intrsenabled_fn, void *intr_arg);
-extern void ai_deregister_intr_callback(si_t *sih);
-extern void ai_clkctl_init(si_t *sih);
-extern u16 ai_clkctl_fast_pwrup_delay(si_t *sih);
-extern bool ai_clkctl_cc(si_t *sih, uint mode);
-extern int ai_clkctl_xtal(si_t *sih, uint what, bool on);
-extern bool ai_deviceremoved(si_t *sih);
-extern u32 ai_gpiocontrol(si_t *sih, u32 mask, u32 val,
+extern void ai_deregister_intr_callback(struct si_pub *sih);
+extern void ai_clkctl_init(struct si_pub *sih);
+extern u16 ai_clkctl_fast_pwrup_delay(struct si_pub *sih);
+extern bool ai_clkctl_cc(struct si_pub *sih, uint mode);
+extern int ai_clkctl_xtal(struct si_pub *sih, uint what, bool on);
+extern bool ai_deviceremoved(struct si_pub *sih);
+extern u32 ai_gpiocontrol(struct si_pub *sih, u32 mask, u32 val,
 			     u8 priority);
 
 /* OTP status */
-extern bool ai_is_otp_disabled(si_t *sih);
-extern bool ai_is_otp_powered(si_t *sih);
-extern void ai_otp_power(si_t *sih, bool on);
+extern bool ai_is_otp_disabled(struct si_pub *sih);
 
 /* SPROM availability */
-extern bool ai_is_sprom_available(si_t *sih);
+extern bool ai_is_sprom_available(struct si_pub *sih);
 
 /*
  * Build device path. Path size must be >= SI_DEVPATH_BUFSZ.
  * The returned path is NULL terminated and has trailing '/'.
  * Return 0 on success, nonzero otherwise.
  */
-extern int ai_devpath(si_t *sih, char *path, int size);
-/* Read variable with prepending the devpath to the name */
-extern char *ai_getdevpathvar(si_t *sih, const char *name);
-extern int ai_getdevpathintvar(si_t *sih, const char *name);
+extern int ai_devpath(struct si_pub *sih, char *path, int size);
 
-extern void ai_pci_sleep(si_t *sih);
-extern void ai_pci_down(si_t *sih);
-extern void ai_pci_up(si_t *sih);
-extern int ai_pci_fixcfg(si_t *sih);
+extern void ai_pci_sleep(struct si_pub *sih);
+extern void ai_pci_down(struct si_pub *sih);
+extern void ai_pci_up(struct si_pub *sih);
+extern int ai_pci_fixcfg(struct si_pub *sih);
 
-extern void ai_chipcontrl_epa4331(si_t *sih, bool on);
+extern void ai_chipcontrl_epa4331(struct si_pub *sih, bool on);
 /* Enable Ex-PA for 4313 */
-extern void ai_epa_4313war(si_t *sih);
+extern void ai_epa_4313war(struct si_pub *sih);
 
-char *ai_getnvramflvar(si_t *sih, const char *name);
-
-#endif				/* _aiutils_h_ */
+#endif				/* _BRCM_AIUTILS_H_ */

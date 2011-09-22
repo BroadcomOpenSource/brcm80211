@@ -1,0 +1,949 @@
+diff --git a/drivers/staging/brcm80211/brcmfmac/dhd_cdc.c b/drivers/staging/brcm80211/brcmfmac/dhd_cdc.c
+index b3fc2a3..b7b527f 100644
+--- a/drivers/staging/brcm80211/brcmfmac/dhd_cdc.c
++++ b/drivers/staging/brcm80211/brcmfmac/dhd_cdc.c
+@@ -477,7 +477,7 @@ int dhd_prot_init(dhd_pub_t *dhd)
+ 		dhd_os_proto_unblock(dhd);
+ 		return ret;
+ 	}
+-	memcpy(dhd->mac.octet, buf, ETHER_ADDR_LEN);
++	memcpy(dhd->mac.octet, buf, ETH_ALEN);
+ 
+ 	dhd_os_proto_unblock(dhd);
+ 
+diff --git a/drivers/staging/brcm80211/brcmfmac/dhd_common.c b/drivers/staging/brcm80211/brcmfmac/dhd_common.c
+index ce5f913..6b57b2f 100644
+--- a/drivers/staging/brcm80211/brcmfmac/dhd_common.c
++++ b/drivers/staging/brcm80211/brcmfmac/dhd_common.c
+@@ -868,7 +868,7 @@ wl_host_event(struct dhd_info *dhd, int *ifidx, void *pktdata,
+ 				if (ifevent->action == WLC_E_IF_ADD)
+ 					dhd_add_if(dhd, ifevent->ifidx,
+ 						   NULL, event->ifname,
+-						   pvt_data->eth.ether_dhost,
++						   pvt_data->eth.h_dest,
+ 						   ifevent->flags,
+ 						   ifevent->bssidx);
+ 				else
+@@ -1256,7 +1256,7 @@ int dhd_preinit_ioctls(dhd_pub_t *dhd)
+ 	 */
+ 	ret = dhd_custom_get_mac_address(ea_addr.octet);
+ 	if (!ret) {
+-		bcm_mkiovar("cur_etheraddr", (void *)&ea_addr, ETHER_ADDR_LEN,
++		bcm_mkiovar("cur_etheraddr", (void *)&ea_addr, ETH_ALEN,
+ 			    buf, sizeof(buf));
+ 		ret = dhdcdc_set_ioctl(dhd, 0, WLC_SET_VAR, buf, sizeof(buf));
+ 		if (ret < 0) {
+@@ -1264,7 +1264,7 @@ int dhd_preinit_ioctls(dhd_pub_t *dhd)
+ 				   __func__, ret));
+ 		} else
+ 			memcpy(dhd->mac.octet, (void *)&ea_addr,
+-			       ETHER_ADDR_LEN);
++			       ETH_ALEN);
+ 	}
+ #endif				/* GET_CUSTOM_MAC_ENABLE */
+ 
+@@ -1534,7 +1534,7 @@ int dhd_iscan_delete_bss(void *dhdp, void *addr, iscan_buf_t *iscan_skip)
+ 					break;
+ 
+ 				if (!memcmp
+-				    (bi->BSSID.octet, addr, ETHER_ADDR_LEN)) {
++				    (bi->BSSID.octet, addr, ETH_ALEN)) {
+ 					DHD_ISCAN(("%s: Del BSS[%2.2d:%2.2d] "
+ 					"%X:%X:%X:%X:%X:%X\n",
+ 					__func__, l, i, bi->BSSID.octet[0],
+@@ -1672,7 +1672,7 @@ int dhd_iscan_request(void *dhdp, u16 action)
+ 	char buf[WLC_IOCTL_SMLEN];
+ 
+ 	memset(&params, 0, sizeof(wl_iscan_params_t));
+-	memcpy(&params.params.bssid, &ether_bcast, ETHER_ADDR_LEN);
++	memcpy(&params.params.bssid, &ether_bcast, ETH_ALEN);
+ 
+ 	params.params.bss_type = DOT11_BSSTYPE_ANY;
+ 	params.params.scan_type = DOT11_SCANTYPE_ACTIVE;
+diff --git a/drivers/staging/brcm80211/brcmfmac/dhd_linux.c b/drivers/staging/brcm80211/brcmfmac/dhd_linux.c
+index a114dee..5195f08 100644
+--- a/drivers/staging/brcm80211/brcmfmac/dhd_linux.c
++++ b/drivers/staging/brcm80211/brcmfmac/dhd_linux.c
+@@ -210,7 +210,7 @@ typedef struct dhd_if {
+ 	int idx;		/* iface idx in dongle */
+ 	int state;		/* interface state */
+ 	uint subunit;		/* subunit */
+-	u8 mac_addr[ETHER_ADDR_LEN];	/* assigned MAC address */
++	u8 mac_addr[ETH_ALEN];	/* assigned MAC address */
+ 	bool attached;		/* Delayed attachment when unset */
+ 	bool txflowcontrol;	/* Per interface flow control indicator */
+ 	char name[IFNAMSIZ];	/* linux interface name */
+@@ -708,7 +708,7 @@ static void _dhd_set_multicast_list(dhd_info_t *dhd, int ifidx)
+ 
+ 	/* Send down the multicast list first. */
+ 
+-	buflen = sizeof("mcast_list") + sizeof(cnt) + (cnt * ETHER_ADDR_LEN);
++	buflen = sizeof("mcast_list") + sizeof(cnt) + (cnt * ETH_ALEN);
+ 	bufp = buf = kmalloc(buflen, GFP_ATOMIC);
+ 	if (!bufp) {
+ 		DHD_ERROR(("%s: out of memory for mcast_list, cnt %d\n",
+@@ -726,8 +726,8 @@ static void _dhd_set_multicast_list(dhd_info_t *dhd, int ifidx)
+ 	netdev_for_each_mc_addr(ha, dev) {
+ 		if (!cnt)
+ 			break;
+-		memcpy(bufp, ha->addr, ETHER_ADDR_LEN);
+-		bufp += ETHER_ADDR_LEN;
++		memcpy(bufp, ha->addr, ETH_ALEN);
++		bufp += ETH_ALEN;
+ 		cnt--;
+ 	}
+ 
+@@ -811,7 +811,7 @@ _dhd_set_mac_address(dhd_info_t *dhd, int ifidx, struct ether_addr *addr)
+ 
+ 	DHD_TRACE(("%s enter\n", __func__));
+ 	if (!bcm_mkiovar
+-	    ("cur_etheraddr", (char *)addr, ETHER_ADDR_LEN, buf, 32)) {
++	    ("cur_etheraddr", (char *)addr, ETH_ALEN, buf, 32)) {
+ 		DHD_ERROR(("%s: mkiovar failed for cur_etheraddr\n",
+ 			   dhd_ifname(&dhd->pub, ifidx)));
+ 		return -1;
+@@ -827,7 +827,7 @@ _dhd_set_mac_address(dhd_info_t *dhd, int ifidx, struct ether_addr *addr)
+ 		DHD_ERROR(("%s: set cur_etheraddr failed\n",
+ 			   dhd_ifname(&dhd->pub, ifidx)));
+ 	} else {
+-		memcpy(dhd->iflist[ifidx]->net->dev_addr, addr, ETHER_ADDR_LEN);
++		memcpy(dhd->iflist[ifidx]->net->dev_addr, addr, ETH_ALEN);
+ 	}
+ 
+ 	return ret;
+@@ -997,7 +997,7 @@ static int dhd_set_mac_address(struct net_device *dev, void *addr)
+ 		return -1;
+ 
+ 	ASSERT(dhd->sysioc_tsk);
+-	memcpy(&dhd->macvalue, sa->sa_data, ETHER_ADDR_LEN);
++	memcpy(&dhd->macvalue, sa->sa_data, ETH_ALEN);
+ 	dhd->set_macaddress = true;
+ 	up(&dhd->sysioc_sem);
+ 
+@@ -1028,13 +1028,13 @@ int dhd_sendpkt(dhd_pub_t *dhdp, int ifidx, struct sk_buff *pktbuf)
+ 		return -ENODEV;
+ 
+ 	/* Update multicast statistic */
+-	if (pktbuf->len >= ETHER_ADDR_LEN) {
++	if (pktbuf->len >= ETH_ALEN) {
+ 		u8 *pktdata = (u8 *) (pktbuf->data);
+-		struct ether_header *eh = (struct ether_header *)pktdata;
++		struct ethhdr *eh = (struct ethhdr *)pktdata;
+ 
+-		if (ETHER_ISMULTI(eh->ether_dhost))
++		if (ETHER_ISMULTI(eh->h_dest))
+ 			dhdp->tx_multicast++;
+-		if (ntoh16(eh->ether_type) == ETHER_TYPE_802_1X)
++		if (ntoh16(eh->h_proto) == ETH_P_PAE)
+ 			atomic_inc(&dhd->pend_8021x_cnt);
+ 	}
+ 
+@@ -1254,15 +1254,15 @@ void dhd_txcomplete(dhd_pub_t *dhdp, struct sk_buff *txp, bool success)
+ {
+ 	uint ifidx;
+ 	dhd_info_t *dhd = (dhd_info_t *) (dhdp->info);
+-	struct ether_header *eh;
++	struct ethhdr *eh;
+ 	u16 type;
+ 
+ 	dhd_prot_hdrpull(dhdp, &ifidx, txp);
+ 
+-	eh = (struct ether_header *)(txp->data);
+-	type = ntoh16(eh->ether_type);
++	eh = (struct ethhdr *)(txp->data);
++	type = ntoh16(eh->h_proto);
+ 
+-	if (type == ETHER_TYPE_802_1X)
++	if (type == ETH_P_PAE)
+ 		atomic_dec(&dhd->pend_8021x_cnt);
+ 
+ }
+@@ -1866,7 +1866,7 @@ static int dhd_open(struct net_device *net)
+ 		}
+ 		atomic_set(&dhd->pend_8021x_cnt, 0);
+ 
+-		memcpy(net->dev_addr, dhd->pub.mac.octet, ETHER_ADDR_LEN);
++		memcpy(net->dev_addr, dhd->pub.mac.octet, ETH_ALEN);
+ 
+ #ifdef TOE
+ 		/* Get current TOE mode from dongle */
+@@ -1922,7 +1922,7 @@ dhd_add_if(dhd_info_t *dhd, int ifidx, void *handle, char *name,
+ 	dhd->iflist[ifidx] = ifp;
+ 	strlcpy(ifp->name, name, IFNAMSIZ);
+ 	if (mac_addr != NULL)
+-		memcpy(&ifp->mac_addr, mac_addr, ETHER_ADDR_LEN);
++		memcpy(&ifp->mac_addr, mac_addr, ETH_ALEN);
+ 
+ 	if (handle == NULL) {
+ 		ifp->state = WLC_E_IF_ADD;
+@@ -2281,7 +2281,7 @@ int dhd_net_attach(dhd_pub_t *dhdp, int ifidx)
+ {
+ 	dhd_info_t *dhd = (dhd_info_t *) dhdp->info;
+ 	struct net_device *net;
+-	u8 temp_addr[ETHER_ADDR_LEN] = {
++	u8 temp_addr[ETH_ALEN] = {
+ 		0x00, 0x90, 0x4c, 0x11, 0x22, 0x33};
+ 
+ 	DHD_TRACE(("%s: ifidx %d\n", __func__, ifidx));
+@@ -2299,7 +2299,7 @@ int dhd_net_attach(dhd_pub_t *dhdp, int ifidx)
+ 	 */
+ 	if (ifidx != 0) {
+ 		/* for virtual interfaces use the primary MAC  */
+-		memcpy(temp_addr, dhd->pub.mac.octet, ETHER_ADDR_LEN);
++		memcpy(temp_addr, dhd->pub.mac.octet, ETH_ALEN);
+ 
+ 	}
+ 
+@@ -2327,7 +2327,7 @@ int dhd_net_attach(dhd_pub_t *dhdp, int ifidx)
+ 
+ 	dhd->pub.rxsz = net->mtu + net->hard_header_len + dhd->pub.hdrlen;
+ 
+-	memcpy(net->dev_addr, temp_addr, ETHER_ADDR_LEN);
++	memcpy(net->dev_addr, temp_addr, ETH_ALEN);
+ 
+ 	if (register_netdev(net) != 0) {
+ 		DHD_ERROR(("%s: couldn't register the net device\n",
+diff --git a/drivers/staging/brcm80211/brcmfmac/wl_cfg80211.c b/drivers/staging/brcm80211/brcmfmac/wl_cfg80211.c
+index 0d7aa4a..3a1e3e8 100644
+--- a/drivers/staging/brcm80211/brcmfmac/wl_cfg80211.c
++++ b/drivers/staging/brcm80211/brcmfmac/wl_cfg80211.c
+@@ -648,7 +648,7 @@ wl_cfg80211_change_iface(struct wiphy *wiphy, struct net_device *ndev,
+ 
+ static void wl_iscan_prep(struct wl_scan_params *params, struct wlc_ssid *ssid)
+ {
+-	memcpy(&params->bssid, &ether_bcast, ETHER_ADDR_LEN);
++	memcpy(&params->bssid, &ether_bcast, ETH_ALEN);
+ 	params->bss_type = DOT11_BSSTYPE_ANY;
+ 	params->scan_type = 0;
+ 	params->nprobes = -1;
+@@ -1044,9 +1044,9 @@ wl_cfg80211_join_ibss(struct wiphy *wiphy, struct net_device *dev,
+ 	join_params.ssid.SSID_len = htod32(params->ssid_len);
+ 	if (params->bssid)
+ 		memcpy(&join_params.params.bssid, params->bssid,
+-		       ETHER_ADDR_LEN);
++		       ETH_ALEN);
+ 	else
+-		memset(&join_params.params.bssid, 0, ETHER_ADDR_LEN);
++		memset(&join_params.params.bssid, 0, ETH_ALEN);
+ 
+ 	err = wl_dev_ioctl(dev, WLC_SET_SSID, &join_params,
+ 			sizeof(join_params));
+@@ -1373,7 +1373,7 @@ wl_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
+ 	memcpy(&join_params.ssid.SSID, sme->ssid, join_params.ssid.SSID_len);
+ 	join_params.ssid.SSID_len = htod32(join_params.ssid.SSID_len);
+ 	wl_update_prof(wl, NULL, &join_params.ssid, WL_PROF_SSID);
+-	memcpy(&join_params.params.bssid, &ether_bcast, ETHER_ADDR_LEN);
++	memcpy(&join_params.params.bssid, &ether_bcast, ETH_ALEN);
+ 
+ 	wl_ch_to_chanspec(wl->channel, &join_params, &join_params_size);
+ 	WL_DBG(("join_param_size %d\n", join_params_size));
+@@ -1406,7 +1406,7 @@ wl_cfg80211_disconnect(struct wiphy *wiphy, struct net_device *dev,
+ 	act = *(bool *) wl_read_prof(wl, WL_PROF_ACT);
+ 	if (likely(act)) {
+ 		scbval.val = reason_code;
+-		memcpy(&scbval.ea, &wl->bssid, ETHER_ADDR_LEN);
++		memcpy(&scbval.ea, &wl->bssid, ETH_ALEN);
+ 		scbval.val = htod32(scbval.val);
+ 		err = wl_dev_ioctl(dev, WLC_DISASSOC, &scbval,
+ 				sizeof(scb_val_t));
+@@ -1533,7 +1533,7 @@ wl_add_keyext(struct wiphy *wiphy, struct net_device *dev,
+ 	/* Instead of bcast for ea address for default wep keys,
+ 		 driver needs it to be Null */
+ 	if (!ETHER_ISMULTI(mac_addr))
+-		memcpy((char *)&key.ea, (void *)mac_addr, ETHER_ADDR_LEN);
++		memcpy((char *)&key.ea, (void *)mac_addr, ETH_ALEN);
+ 	key.len = (u32) params->key_len;
+ 	/* check for key index change */
+ 	if (key.len == 0) {
+@@ -1826,7 +1826,7 @@ wl_cfg80211_get_station(struct wiphy *wiphy, struct net_device *dev,
+ 
+ 	CHECK_SYS_UP();
+ 	if (unlikely
+-	    (memcmp(mac, wl_read_prof(wl, WL_PROF_BSSID), ETHER_ADDR_LEN))) {
++	    (memcmp(mac, wl_read_prof(wl, WL_PROF_BSSID), ETH_ALEN))) {
+ 		WL_ERR(("Wrong Mac address\n"));
+ 		return -ENOENT;
+ 	}
+@@ -2029,11 +2029,11 @@ wl_cfg80211_set_pmksa(struct wiphy *wiphy, struct net_device *dev,
+ 	CHECK_SYS_UP();
+ 	for (i = 0; i < wl->pmk_list->pmkids.npmkid; i++)
+ 		if (!memcmp(pmksa->bssid, &wl->pmk_list->pmkids.pmkid[i].BSSID,
+-			    ETHER_ADDR_LEN))
++			    ETH_ALEN))
+ 			break;
+ 	if (i < WL_NUM_PMKIDS_MAX) {
+ 		memcpy(&wl->pmk_list->pmkids.pmkid[i].BSSID, pmksa->bssid,
+-		       ETHER_ADDR_LEN);
++		       ETH_ALEN);
+ 		memcpy(&wl->pmk_list->pmkids.pmkid[i].PMKID, pmksa->pmkid,
+ 		       WPA2_PMKID_LEN);
+ 		if (i == wl->pmk_list->pmkids.npmkid)
+@@ -2064,7 +2064,7 @@ wl_cfg80211_del_pmksa(struct wiphy *wiphy, struct net_device *dev,
+ 	int i;
+ 
+ 	CHECK_SYS_UP();
+-	memcpy(&pmkid.pmkid[0].BSSID, pmksa->bssid, ETHER_ADDR_LEN);
++	memcpy(&pmkid.pmkid[0].BSSID, pmksa->bssid, ETH_ALEN);
+ 	memcpy(&pmkid.pmkid[0].PMKID, pmksa->pmkid, WPA2_PMKID_LEN);
+ 
+ 	WL_DBG(("del_pmksa,IW_PMKSA_REMOVE - PMKID: %pM =\n",
+@@ -2076,7 +2076,7 @@ wl_cfg80211_del_pmksa(struct wiphy *wiphy, struct net_device *dev,
+ 	for (i = 0; i < wl->pmk_list->pmkids.npmkid; i++)
+ 		if (!memcmp
+ 		    (pmksa->bssid, &wl->pmk_list->pmkids.pmkid[i].BSSID,
+-		     ETHER_ADDR_LEN))
++		     ETH_ALEN))
+ 			break;
+ 
+ 	if ((wl->pmk_list->pmkids.npmkid > 0)
+@@ -2085,7 +2085,7 @@ wl_cfg80211_del_pmksa(struct wiphy *wiphy, struct net_device *dev,
+ 		for (; i < (wl->pmk_list->pmkids.npmkid - 1); i++) {
+ 			memcpy(&wl->pmk_list->pmkids.pmkid[i].BSSID,
+ 			       &wl->pmk_list->pmkids.pmkid[i + 1].BSSID,
+-			       ETHER_ADDR_LEN);
++			       ETH_ALEN);
+ 			memcpy(&wl->pmk_list->pmkids.pmkid[i].PMKID,
+ 			       &wl->pmk_list->pmkids.pmkid[i + 1].PMKID,
+ 			       WPA2_PMKID_LEN);
+@@ -2284,7 +2284,7 @@ static s32 wl_inform_single_bss(struct wl_priv *wl, struct wl_bss_info *bi)
+ 	else
+ 		band = wiphy->bands[IEEE80211_BAND_5GHZ];
+ 	notif_bss_info->rssi = bi->RSSI;
+-	memcpy(mgmt->bssid, &bi->BSSID, ETHER_ADDR_LEN);
++	memcpy(mgmt->bssid, &bi->BSSID, ETH_ALEN);
+ 	mgmt_type = wl->active_scan ?
+ 		IEEE80211_STYPE_PROBE_RESP : IEEE80211_STYPE_BEACON;
+ 	if (!memcmp(bi->SSID, sr->ssid.SSID, bi->SSID_len)) {
+@@ -2579,7 +2579,7 @@ static s32 wl_update_bss_info(struct wl_priv *wl)
+ 			goto update_bss_info_out;
+ 		}
+ 		bi = (struct wl_bss_info *)(wl->extra_buf + 4);
+-		if (unlikely(memcmp(&bi->BSSID, &wl->bssid, ETHER_ADDR_LEN))) {
++		if (unlikely(memcmp(&bi->BSSID, &wl->bssid, ETH_ALEN))) {
+ 			err = -EIO;
+ 			goto update_bss_info_out;
+ 		}
+@@ -2631,7 +2631,7 @@ wl_bss_roaming_done(struct wl_priv *wl, struct net_device *ndev,
+ 	s32 err = 0;
+ 
+ 	wl_get_assoc_ies(wl);
+-	memcpy(&wl->bssid, &e->addr, ETHER_ADDR_LEN);
++	memcpy(&wl->bssid, &e->addr, ETH_ALEN);
+ 	wl_update_bss_info(wl);
+ 	cfg80211_roamed(ndev,
+ 			(u8 *)&wl->bssid,
+@@ -2652,7 +2652,7 @@ wl_bss_connect_done(struct wl_priv *wl, struct net_device *ndev,
+ 	s32 err = 0;
+ 
+ 	wl_get_assoc_ies(wl);
+-	memcpy(&wl->bssid, &e->addr, ETHER_ADDR_LEN);
++	memcpy(&wl->bssid, &e->addr, ETH_ALEN);
+ 	wl_update_bss_info(wl);
+ 	if (test_and_clear_bit(WL_STATUS_CONNECTING, &wl->status)) {
+ 		cfg80211_connect_result(ndev,
+@@ -3926,9 +3926,9 @@ wl_update_prof(struct wl_priv *wl, const wl_event_msg_t *e, void *data,
+ 		break;
+ 	case WL_PROF_BSSID:
+ 		if (data)
+-			memcpy(wl->profile->bssid, data, ETHER_ADDR_LEN);
++			memcpy(wl->profile->bssid, data, ETH_ALEN);
+ 		else
+-			memset(wl->profile->bssid, 0, ETHER_ADDR_LEN);
++			memset(wl->profile->bssid, 0, ETH_ALEN);
+ 		break;
+ 	case WL_PROF_SEC:
+ 		memcpy(&wl->profile->sec, data, sizeof(wl->profile->sec));
+diff --git a/drivers/staging/brcm80211/brcmfmac/wl_cfg80211.h b/drivers/staging/brcm80211/brcmfmac/wl_cfg80211.h
+index 770e63f..1069e65 100644
+--- a/drivers/staging/brcm80211/brcmfmac/wl_cfg80211.h
++++ b/drivers/staging/brcm80211/brcmfmac/wl_cfg80211.h
+@@ -237,7 +237,7 @@ struct wl_ibss {
+ struct wl_profile {
+ 	u32 mode;
+ 	struct wlc_ssid ssid;
+-	u8 bssid[ETHER_ADDR_LEN];
++	u8 bssid[ETH_ALEN];
+ 	u16 beacon_interval;
+ 	u8 dtim_period;
+ 	struct wl_security sec;
+diff --git a/drivers/staging/brcm80211/brcmfmac/wl_iw.c b/drivers/staging/brcm80211/brcmfmac/wl_iw.c
+index d8600bf..d90253e 100644
+--- a/drivers/staging/brcm80211/brcmfmac/wl_iw.c
++++ b/drivers/staging/brcm80211/brcmfmac/wl_iw.c
+@@ -347,7 +347,7 @@ wl_iw_config_commit(struct net_device *dev,
+ 		return 0;
+ 
+ 	memset(&bssid, 0, sizeof(struct sockaddr));
+-	error = dev_wlc_ioctl(dev, WLC_REASSOC, &bssid, ETHER_ADDR_LEN);
++	error = dev_wlc_ioctl(dev, WLC_REASSOC, &bssid, ETH_ALEN);
+ 	if (error) {
+ 		WL_ERROR(("%s: WLC_REASSOC to %s failed\n", __func__,
+ 			  ssid.SSID));
+@@ -691,7 +691,7 @@ wl_iw_set_spy(struct net_device *dev,
+ 
+ 	iw->spy_num = min_t(int, ARRAY_SIZE(iw->spy_addr), dwrq->length);
+ 	for (i = 0; i < iw->spy_num; i++)
+-		memcpy(&iw->spy_addr[i], addr[i].sa_data, ETHER_ADDR_LEN);
++		memcpy(&iw->spy_addr[i], addr[i].sa_data, ETH_ALEN);
+ 	memset(iw->spy_qual, 0, sizeof(iw->spy_qual));
+ 
+ 	return 0;
+@@ -713,7 +713,7 @@ wl_iw_get_spy(struct net_device *dev,
+ 
+ 	dwrq->length = iw->spy_num;
+ 	for (i = 0; i < iw->spy_num; i++) {
+-		memcpy(addr[i].sa_data, &iw->spy_addr[i], ETHER_ADDR_LEN);
++		memcpy(addr[i].sa_data, &iw->spy_addr[i], ETH_ALEN);
+ 		addr[i].sa_family = AF_UNIX;
+ 		memcpy(&qual[i], &iw->spy_qual[i], sizeof(struct iw_quality));
+ 		iw->spy_qual[i].updated = 0;
+@@ -785,7 +785,7 @@ wl_iw_set_wap(struct net_device *dev,
+ 
+ 	memcpy(join_params.ssid.SSID, g_ssid.SSID, g_ssid.SSID_len);
+ 	join_params.ssid.SSID_len = htod32(g_ssid.SSID_len);
+-	memcpy(&join_params.params.bssid, awrq->sa_data, ETHER_ADDR_LEN);
++	memcpy(&join_params.params.bssid, awrq->sa_data, ETH_ALEN);
+ 
+ 	WL_TRACE(("%s  target_channel=%d\n", __func__,
+ 		  g_wl_iw_params.target_channel));
+@@ -815,9 +815,9 @@ wl_iw_get_wap(struct net_device *dev,
+ 	WL_TRACE(("%s: SIOCGIWAP\n", dev->name));
+ 
+ 	awrq->sa_family = ARPHRD_ETHER;
+-	memset(awrq->sa_data, 0, ETHER_ADDR_LEN);
++	memset(awrq->sa_data, 0, ETH_ALEN);
+ 
+-	(void)dev_wlc_ioctl(dev, WLC_GET_BSSID, awrq->sa_data, ETHER_ADDR_LEN);
++	(void)dev_wlc_ioctl(dev, WLC_GET_BSSID, awrq->sa_data, ETH_ALEN);
+ 
+ 	return 0;
+ }
+@@ -840,7 +840,7 @@ wl_iw_mlme(struct net_device *dev,
+ 	}
+ 
+ 	scbval.val = mlme->reason_code;
+-	bcopy(&mlme->addr.sa_data, &scbval.ea, ETHER_ADDR_LEN);
++	bcopy(&mlme->addr.sa_data, &scbval.ea, ETH_ALEN);
+ 
+ 	if (mlme->cmd == IW_MLME_DISASSOC) {
+ 		scbval.val = htod32(scbval.val);
+@@ -911,7 +911,7 @@ wl_iw_get_aplist(struct net_device *dev,
+ 		if (!(dtoh16(bi->capability) & DOT11_CAP_ESS))
+ 			continue;
+ 
+-		memcpy(addr[dwrq->length].sa_data, &bi->BSSID, ETHER_ADDR_LEN);
++		memcpy(addr[dwrq->length].sa_data, &bi->BSSID, ETH_ALEN);
+ 		addr[dwrq->length].sa_family = ARPHRD_ETHER;
+ 		qual[dwrq->length].qual = rssi_to_qual(dtoh16(bi->RSSI));
+ 		qual[dwrq->length].level = 0x100 + dtoh16(bi->RSSI);
+@@ -985,7 +985,7 @@ wl_iw_iscan_get_aplist(struct net_device *dev,
+ 				continue;
+ 
+ 			memcpy(addr[dwrq->length].sa_data, &bi->BSSID,
+-			       ETHER_ADDR_LEN);
++			       ETH_ALEN);
+ 			addr[dwrq->length].sa_family = ARPHRD_ETHER;
+ 			qual[dwrq->length].qual =
+ 			    rssi_to_qual(dtoh16(bi->RSSI));
+@@ -1016,7 +1016,7 @@ static int wl_iw_iscan_prep(wl_scan_params_t *params, wlc_ssid_t *ssid)
+ {
+ 	int err = 0;
+ 
+-	memcpy(&params->bssid, &ether_bcast, ETHER_ADDR_LEN);
++	memcpy(&params->bssid, &ether_bcast, ETH_ALEN);
+ 	params->bss_type = DOT11_BSSTYPE_ANY;
+ 	params->scan_type = 0;
+ 	params->nprobes = -1;
+@@ -1515,7 +1515,7 @@ wl_iw_get_scan_prep(wl_scan_results_t *list,
+ 
+ 		iwe.cmd = SIOCGIWAP;
+ 		iwe.u.ap_addr.sa_family = ARPHRD_ETHER;
+-		memcpy(iwe.u.ap_addr.sa_data, &bi->BSSID, ETHER_ADDR_LEN);
++		memcpy(iwe.u.ap_addr.sa_data, &bi->BSSID, ETH_ALEN);
+ 		event =
+ 		    IWE_STREAM_ADD_EVENT(info, event, end, &iwe,
+ 					 IW_EV_ADDR_LEN);
+@@ -1779,14 +1779,14 @@ wl_iw_iscan_get_scan(struct net_device *dev,
+ 			ASSERT(((unsigned long)bi + dtoh32(bi->length)) <=
+ 			       ((unsigned long)list + WLC_IW_ISCAN_MAXLEN));
+ 
+-			if (event + ETHER_ADDR_LEN + bi->SSID_len +
++			if (event + ETH_ALEN + bi->SSID_len +
+ 			    IW_EV_UINT_LEN + IW_EV_FREQ_LEN + IW_EV_QUAL_LEN >=
+ 			    end)
+ 				return -E2BIG;
+ 			iwe.cmd = SIOCGIWAP;
+ 			iwe.u.ap_addr.sa_family = ARPHRD_ETHER;
+ 			memcpy(iwe.u.ap_addr.sa_data, &bi->BSSID,
+-			       ETHER_ADDR_LEN);
++			       ETH_ALEN);
+ 			event =
+ 			    IWE_STREAM_ADD_EVENT(info, event, end, &iwe,
+ 						 IW_EV_ADDR_LEN);
+@@ -1923,7 +1923,7 @@ wl_iw_set_essid(struct net_device *dev,
+ 
+ 	memcpy(&join_params.ssid.SSID, g_ssid.SSID, g_ssid.SSID_len);
+ 	join_params.ssid.SSID_len = htod32(g_ssid.SSID_len);
+-	memcpy(&join_params.params.bssid, &ether_bcast, ETHER_ADDR_LEN);
++	memcpy(&join_params.params.bssid, &ether_bcast, ETH_ALEN);
+ 
+ 	wl_iw_ch_to_chanspec(g_wl_iw_params.target_channel, &join_params,
+ 			     &join_params_size);
+@@ -2550,7 +2550,7 @@ wl_iw_set_encodeext(struct net_device *dev,
+ 
+ 	if (!ETHER_ISMULTI(iwe->addr.sa_data))
+ 		bcopy((void *)&iwe->addr.sa_data, (char *)&key.ea,
+-		      ETHER_ADDR_LEN);
++		      ETH_ALEN);
+ 
+ 	if (key.len == 0) {
+ 		if (iwe->ext_flags & IW_ENCODE_EXT_SET_TX_KEY) {
+@@ -2656,7 +2656,7 @@ wl_iw_set_pmksa(struct net_device *dev,
+ 			pmkidptr = &pmkid;
+ 
+ 			bcopy(&iwpmksa->bssid.sa_data[0],
+-			      &pmkidptr->pmkid[0].BSSID, ETHER_ADDR_LEN);
++			      &pmkidptr->pmkid[0].BSSID, ETH_ALEN);
+ 			bcopy(&iwpmksa->pmkid[0], &pmkidptr->pmkid[0].PMKID,
+ 			      WPA2_PMKID_LEN);
+ 
+@@ -2670,7 +2670,7 @@ wl_iw_set_pmksa(struct net_device *dev,
+ 		for (i = 0; i < pmkid_list.pmkids.npmkid; i++)
+ 			if (!memcmp
+ 			    (&iwpmksa->bssid.sa_data[0],
+-			     &pmkid_list.pmkids.pmkid[i].BSSID, ETHER_ADDR_LEN))
++			     &pmkid_list.pmkids.pmkid[i].BSSID, ETH_ALEN))
+ 				break;
+ 
+ 		if ((pmkid_list.pmkids.npmkid > 0)
+@@ -2679,7 +2679,7 @@ wl_iw_set_pmksa(struct net_device *dev,
+ 			for (; i < (pmkid_list.pmkids.npmkid - 1); i++) {
+ 				bcopy(&pmkid_list.pmkids.pmkid[i + 1].BSSID,
+ 				      &pmkid_list.pmkids.pmkid[i].BSSID,
+-				      ETHER_ADDR_LEN);
++				      ETH_ALEN);
+ 				bcopy(&pmkid_list.pmkids.pmkid[i + 1].PMKID,
+ 				      &pmkid_list.pmkids.pmkid[i].PMKID,
+ 				      WPA2_PMKID_LEN);
+@@ -2693,12 +2693,12 @@ wl_iw_set_pmksa(struct net_device *dev,
+ 		for (i = 0; i < pmkid_list.pmkids.npmkid; i++)
+ 			if (!memcmp
+ 			    (&iwpmksa->bssid.sa_data[0],
+-			     &pmkid_list.pmkids.pmkid[i].BSSID, ETHER_ADDR_LEN))
++			     &pmkid_list.pmkids.pmkid[i].BSSID, ETH_ALEN))
+ 				break;
+ 		if (i < MAXPMKID) {
+ 			bcopy(&iwpmksa->bssid.sa_data[0],
+ 			      &pmkid_list.pmkids.pmkid[i].BSSID,
+-			      ETHER_ADDR_LEN);
++			      ETH_ALEN);
+ 			bcopy(&iwpmksa->pmkid[0],
+ 			      &pmkid_list.pmkids.pmkid[i].PMKID,
+ 			      WPA2_PMKID_LEN);
+@@ -3394,34 +3394,34 @@ void wl_iw_event(struct net_device *dev, wl_event_msg_t *e, void *data)
+ 	switch (event_type) {
+ 	case WLC_E_TXFAIL:
+ 		cmd = IWEVTXDROP;
+-		memcpy(wrqu.addr.sa_data, &e->addr, ETHER_ADDR_LEN);
++		memcpy(wrqu.addr.sa_data, &e->addr, ETH_ALEN);
+ 		wrqu.addr.sa_family = ARPHRD_ETHER;
+ 		break;
+ #if WIRELESS_EXT > 14
+ 	case WLC_E_JOIN:
+ 	case WLC_E_ASSOC_IND:
+ 	case WLC_E_REASSOC_IND:
+-		memcpy(wrqu.addr.sa_data, &e->addr, ETHER_ADDR_LEN);
++		memcpy(wrqu.addr.sa_data, &e->addr, ETH_ALEN);
+ 		wrqu.addr.sa_family = ARPHRD_ETHER;
+ 		cmd = IWEVREGISTERED;
+ 		break;
+ 	case WLC_E_DEAUTH_IND:
+ 	case WLC_E_DISASSOC_IND:
+ 		cmd = SIOCGIWAP;
+-		memset(wrqu.addr.sa_data, 0, ETHER_ADDR_LEN);
++		memset(wrqu.addr.sa_data, 0, ETH_ALEN);
+ 		wrqu.addr.sa_family = ARPHRD_ETHER;
+-		memset(&extra, 0, ETHER_ADDR_LEN);
++		memset(&extra, 0, ETH_ALEN);
+ 		break;
+ 	case WLC_E_LINK:
+ 	case WLC_E_NDIS_LINK:
+ 		cmd = SIOCGIWAP;
+ 		if (!(flags & WLC_EVENT_MSG_LINK)) {
+-			memset(wrqu.addr.sa_data, 0, ETHER_ADDR_LEN);
+-			memset(&extra, 0, ETHER_ADDR_LEN);
++			memset(wrqu.addr.sa_data, 0, ETH_ALEN);
++			memset(&extra, 0, ETH_ALEN);
+ 			WAKE_LOCK_TIMEOUT(iw->pub, WAKE_LOCK_LINK_DOWN_TMOUT,
+ 					  20 * HZ);
+ 		} else {
+-			memcpy(wrqu.addr.sa_data, &e->addr, ETHER_ADDR_LEN);
++			memcpy(wrqu.addr.sa_data, &e->addr, ETH_ALEN);
+ 			WL_TRACE(("Link UP\n"));
+ 
+ 		}
+@@ -3464,7 +3464,7 @@ void wl_iw_event(struct net_device *dev, wl_event_msg_t *e, void *data)
+ 			else
+ 				micerrevt->flags |= IW_MICFAILURE_PAIRWISE;
+ 			memcpy(micerrevt->src_addr.sa_data, &e->addr,
+-			       ETHER_ADDR_LEN);
++			       ETH_ALEN);
+ 			micerrevt->src_addr.sa_family = ARPHRD_ETHER;
+ 
+ 			break;
+@@ -3494,7 +3494,7 @@ void wl_iw_event(struct net_device *dev, wl_event_msg_t *e, void *data)
+ 						    IW_PMKID_CAND_PREAUTH;
+ 					bcopy(&pmkidcand->BSSID,
+ 					      &iwpmkidcand->bssid.sa_data,
+-					      ETHER_ADDR_LEN);
++					      ETH_ALEN);
+ #ifndef SANDGATE2G
+ 					wireless_send_event(dev, cmd, &wrqu,
+ 							    extra);
+diff --git a/drivers/staging/brcm80211/include/proto/bcmeth.h b/drivers/staging/brcm80211/include/proto/bcmeth.h
+deleted file mode 100644
+index f7d3d8d..0000000
+--- a/drivers/staging/brcm80211/include/proto/bcmeth.h
++++ /dev/null
+@@ -1,48 +0,0 @@
+-/*
+- * Copyright (c) 2010 Broadcom Corporation
+- *
+- * Permission to use, copy, modify, and/or distribute this software for any
+- * purpose with or without fee is hereby granted, provided that the above
+- * copyright notice and this permission notice appear in all copies.
+- *
+- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+- */
+-
+-#ifndef _BCMETH_H_
+-#define _BCMETH_H_
+-
+-#include <packed_section_start.h>
+-
+-#define	BCMILCP_SUBTYPE_RATE		1
+-#define	BCMILCP_SUBTYPE_LINK		2
+-#define	BCMILCP_SUBTYPE_CSA		3
+-#define	BCMILCP_SUBTYPE_LARQ		4
+-#define BCMILCP_SUBTYPE_VENDOR		5
+-#define	BCMILCP_SUBTYPE_FLH		17
+-#define BCMILCP_SUBTYPE_VENDOR_LONG	32769
+-#define BCMILCP_SUBTYPE_CERT		32770
+-#define BCMILCP_SUBTYPE_SES		32771
+-#define BCMILCP_BCM_SUBTYPE_RESERVED		0
+-#define BCMILCP_BCM_SUBTYPE_EVENT		1
+-#define BCMILCP_BCM_SUBTYPE_SES			2
+-#define BCMILCP_BCM_SUBTYPE_DPT			4
+-#define BCMILCP_BCM_SUBTYPEHDR_MINLENGTH	8
+-#define BCMILCP_BCM_SUBTYPEHDR_VERSION		0
+-
+-typedef BWL_PRE_PACKED_STRUCT struct bcmeth_hdr {
+-	u16 subtype;
+-	u16 length;
+-	u8 version;
+-	u8 oui[3];
+-	u16 usr_subtype;
+-} BWL_POST_PACKED_STRUCT bcmeth_hdr_t;
+-
+-#include <packed_section_end.h>
+-
+-#endif				/* _BCMETH_H_ */
+diff --git a/drivers/staging/brcm80211/include/proto/bcmevent.h b/drivers/staging/brcm80211/include/proto/bcmevent.h
+index 865d157..7e35b79 100644
+--- a/drivers/staging/brcm80211/include/proto/bcmevent.h
++++ b/drivers/staging/brcm80211/include/proto/bcmevent.h
+@@ -40,13 +40,13 @@ typedef BWL_PRE_PACKED_STRUCT struct {
+ 
+ #ifdef BRCM_FULLMAC
+ typedef BWL_PRE_PACKED_STRUCT struct bcm_event {
+-	struct ether_header eth;
++	struct ethhdr		eth;
+ 	bcmeth_hdr_t		bcm_hdr;
+ 	wl_event_msg_t		event;
+ } BWL_POST_PACKED_STRUCT bcm_event_t;
+ #endif
+ #define BCM_MSG_LEN	(sizeof(bcm_event_t) - sizeof(bcmeth_hdr_t) - \
+-	sizeof(struct ether_header))
++	sizeof(struct ethhdr))
+ 
+ #define WLC_E_SET_SSID		0
+ #define WLC_E_JOIN		1
+diff --git a/drivers/staging/brcm80211/include/proto/ethernet.h b/drivers/staging/brcm80211/include/proto/ethernet.h
+index cc17b42..b4cd7ef 100644
+--- a/drivers/staging/brcm80211/include/proto/ethernet.h
++++ b/drivers/staging/brcm80211/include/proto/ethernet.h
+@@ -16,74 +16,12 @@
+ 
+ #ifndef _NET_ETHERNET_H_
+ #define _NET_ETHERNET_H_
+-
++#include <linux/if_ether.h>
+ #include <packed_section_start.h>
+ 
+-#define	ETHER_ADDR_LEN		6
+ #define	ETHER_TYPE_LEN		2
+-#define	ETHER_CRC_LEN		4
+-#define	ETHER_HDR_LEN		(ETHER_ADDR_LEN * 2 + ETHER_TYPE_LEN)
+-#define	ETHER_MIN_LEN		64
+-#define	ETHER_MIN_DATA		46
+-#define	ETHER_MAX_LEN		1518
+-#define	ETHER_MAX_DATA		1500
+-
+-#define ETHER_TYPE_MIN		0x0600
+-#define	ETHER_TYPE_IP		0x0800
+-#define ETHER_TYPE_ARP		0x0806
+-#define ETHER_TYPE_8021Q	0x8100
+ #define	ETHER_TYPE_BRCM		0x886c
+-#define	ETHER_TYPE_802_1X	0x888e
+-#define	ETHER_TYPE_802_1X_PREAUTH 0x88c7
+-
+-#define ETHER_DEST_OFFSET	(0 * ETHER_ADDR_LEN)
+-#define ETHER_SRC_OFFSET	(1 * ETHER_ADDR_LEN)
+-#define ETHER_TYPE_OFFSET	(2 * ETHER_ADDR_LEN)
+-
+-#define	ETHER_IS_VALID_LEN(foo)	\
+-	((foo) >= ETHER_MIN_LEN && (foo) <= ETHER_MAX_LEN)
+-
+-#define ETHER_FILL_MCAST_ADDR_FROM_IP(ea, mgrp_ip) {		\
+-		((u8 *)ea)[0] = 0x01;			\
+-		((u8 *)ea)[1] = 0x00;			\
+-		((u8 *)ea)[2] = 0x5e;			\
+-		((u8 *)ea)[3] = ((mgrp_ip) >> 16) & 0x7f;	\
+-		((u8 *)ea)[4] = ((mgrp_ip) >>  8) & 0xff;	\
+-		((u8 *)ea)[5] = ((mgrp_ip) >>  0) & 0xff;	\
+-}
+-
+-BWL_PRE_PACKED_STRUCT struct ether_header {
+-	u8 ether_dhost[ETHER_ADDR_LEN];
+-	u8 ether_shost[ETHER_ADDR_LEN];
+-	u16 ether_type;
+-} BWL_POST_PACKED_STRUCT;
+-
+-BWL_PRE_PACKED_STRUCT struct ether_addr {
+-	u8 octet[ETHER_ADDR_LEN];
+-} BWL_POST_PACKED_STRUCT;
+-
+-#define ETHER_SET_LOCALADDR(ea)	(((u8 *)(ea))[0] = (((u8 *)(ea))[0] | 2))
+-#define ETHER_IS_LOCALADDR(ea) 	(((u8 *)(ea))[0] & 2)
+-#define ETHER_CLR_LOCALADDR(ea)	(((u8 *)(ea))[0] = \
+-	(((u8 *)(ea))[0] & 0xd))
+-#define ETHER_TOGGLE_LOCALADDR(ea)	(((u8 *)(ea))[0] = \
+-	(((u8 *)(ea))[0] ^ 2))
+-
+-#define ETHER_SET_UNICAST(ea)	(((u8 *)(ea))[0] = (((u8 *)(ea))[0] & ~1))
+-
+-#define ETHER_ISMULTI(ea) (((const u8 *)(ea))[0] & 1)
+-
+-#define	ether_cmp(a, b)	(!(((short *)a)[0] == ((short *)b)[0]) | \
+-			 !(((short *)a)[1] == ((short *)b)[1]) | \
+-			 !(((short *)a)[2] == ((short *)b)[2]))
+-
+-#define	ether_copy(s, d) { \
+-		((short *)d)[0] = ((short *)s)[0]; \
+-		((short *)d)[1] = ((short *)s)[1]; \
+-		((short *)d)[2] = ((short *)s)[2]; }
+-
+-static const struct ether_addr ether_bcast = { {255, 255, 255, 255, 255, 255} };
+-static const struct ether_addr ether_null = { {0, 0, 0, 0, 0, 0} };
++#define	ETHER_MAX_LEN		1518
+ 
+ #define ETHER_ISBCAST(ea)	((((u8 *)(ea))[0] &		\
+ 	((u8 *)(ea))[1] &		\
+@@ -91,19 +29,21 @@ static const struct ether_addr ether_null = { {0, 0, 0, 0, 0, 0} };
+ 	((u8 *)(ea))[3] &		\
+ 	((u8 *)(ea))[4] &		\
+ 	((u8 *)(ea))[5]) == 0xff)
++
+ #define ETHER_ISNULLADDR(ea)	((((u8 *)(ea))[0] |		\
+ 	((u8 *)(ea))[1] |		\
+ 	((u8 *)(ea))[2] |		\
+ 	((u8 *)(ea))[3] |		\
+ 	((u8 *)(ea))[4] |		\
+ 	((u8 *)(ea))[5]) == 0)
++#define ETHER_ISMULTI(ea) (((const u8 *)(ea))[0] & 1)
+ 
+-#define ETHER_MOVE_HDR(d, s) \
+-do { \
+-	struct ether_header t; \
+-	t = *(struct ether_header *)(s); \
+-	*(struct ether_header *)(d) = t; \
+-} while (0)
++BWL_PRE_PACKED_STRUCT struct ether_addr {
++	u8 octet[ETH_ALEN];
++} BWL_POST_PACKED_STRUCT;
++
++static const struct ether_addr ether_bcast = { {255, 255, 255, 255, 255, 255} };
++static const struct ether_addr ether_null = { {0, 0, 0, 0, 0, 0} };
+ 
+ #include <packed_section_end.h>
+ 
+diff --git a/drivers/staging/brcm80211/include/wlioctl.h b/drivers/staging/brcm80211/include/wlioctl.h
+index 45e02e5..755549e 100644
+--- a/drivers/staging/brcm80211/include/wlioctl.h
++++ b/drivers/staging/brcm80211/include/wlioctl.h
+@@ -19,7 +19,31 @@
+ 
+ #include <proto/ethernet.h>
+ #ifdef BRCM_FULLMAC
+-#include <proto/bcmeth.h>
++#include <packed_section_start.h>
++#define	BCMILCP_SUBTYPE_RATE		1
++#define	BCMILCP_SUBTYPE_LINK		2
++#define	BCMILCP_SUBTYPE_CSA		3
++#define	BCMILCP_SUBTYPE_LARQ		4
++#define BCMILCP_SUBTYPE_VENDOR		5
++#define	BCMILCP_SUBTYPE_FLH		17
++#define BCMILCP_SUBTYPE_VENDOR_LONG	32769
++#define BCMILCP_SUBTYPE_CERT		32770
++#define BCMILCP_SUBTYPE_SES		32771
++#define BCMILCP_BCM_SUBTYPE_RESERVED		0
++#define BCMILCP_BCM_SUBTYPE_EVENT		1
++#define BCMILCP_BCM_SUBTYPE_SES			2
++#define BCMILCP_BCM_SUBTYPE_DPT			4
++#define BCMILCP_BCM_SUBTYPEHDR_MINLENGTH	8
++#define BCMILCP_BCM_SUBTYPEHDR_VERSION		0
++
++typedef BWL_PRE_PACKED_STRUCT struct bcmeth_hdr {
++	u16 subtype;
++	u16 length;
++	u8 version;
++	u8 oui[3];
++	u16 usr_subtype;
++} BWL_POST_PACKED_STRUCT bcmeth_hdr_t;
++#include <packed_section_end.h>
+ #endif
+ #include <proto/bcmevent.h>
+ #include <proto/802.11.h>
+diff --git a/drivers/staging/brcm80211/sys/wl_mac80211.c b/drivers/staging/brcm80211/sys/wl_mac80211.c
+index d41212b..bd32ad7 100644
+--- a/drivers/staging/brcm80211/sys/wl_mac80211.c
++++ b/drivers/staging/brcm80211/sys/wl_mac80211.c
+@@ -749,7 +749,7 @@ static struct wl_info *wl_attach(u16 vendor, u16 device, unsigned long regs,
+ 		goto fail;
+ 	}
+ 
+-	bcopy(&wl->pub->cur_etheraddr, perm, ETHER_ADDR_LEN);
++	bcopy(&wl->pub->cur_etheraddr, perm, ETH_ALEN);
+ 	ASSERT(is_valid_ether_addr(perm));
+ 	SET_IEEE80211_PERM_ADDR(hw, perm);
+ 
+diff --git a/drivers/staging/brcm80211/sys/wlc_ampdu.c b/drivers/staging/brcm80211/sys/wlc_ampdu.c
+index 9e1816b..7624828 100644
+--- a/drivers/staging/brcm80211/sys/wlc_ampdu.c
++++ b/drivers/staging/brcm80211/sys/wlc_ampdu.c
+@@ -1316,7 +1316,7 @@ void wlc_ampdu_macaddr_upd(struct wlc_info *wlc)
+ 
+ 	/* driver needs to write the ta in the template; ta is at offset 16 */
+ 	memset(template, 0, sizeof(template));
+-	bcopy((char *)wlc->pub->cur_etheraddr.octet, template, ETHER_ADDR_LEN);
++	bcopy((char *)wlc->pub->cur_etheraddr.octet, template, ETH_ALEN);
+ 	wlc_write_template_ram(wlc, (T_BA_TPL_BASE + 16), (T_RAM_ACCESS_SZ * 2),
+ 			       template);
+ }
+diff --git a/drivers/staging/brcm80211/sys/wlc_bmac.c b/drivers/staging/brcm80211/sys/wlc_bmac.c
+index 2abee6f..3b1ade0 100644
+--- a/drivers/staging/brcm80211/sys/wlc_bmac.c
++++ b/drivers/staging/brcm80211/sys/wlc_bmac.c
+@@ -1336,12 +1336,12 @@ void wlc_bmac_wait_for_wake(wlc_hw_info_t *wlc_hw)
+ 
+ void wlc_bmac_hw_etheraddr(wlc_hw_info_t *wlc_hw, struct ether_addr *ea)
+ {
+-	bcopy(&wlc_hw->etheraddr, ea, ETHER_ADDR_LEN);
++	bcopy(&wlc_hw->etheraddr, ea, ETH_ALEN);
+ }
+ 
+ void wlc_bmac_set_hw_etheraddr(wlc_hw_info_t *wlc_hw, struct ether_addr *ea)
+ {
+-	bcopy(ea, &wlc_hw->etheraddr, ETHER_ADDR_LEN);
++	bcopy(ea, &wlc_hw->etheraddr, ETH_ALEN);
+ }
+ 
+ int wlc_bmac_bandtype(wlc_hw_info_t *wlc_hw)
+diff --git a/drivers/staging/brcm80211/sys/wlc_mac80211.c b/drivers/staging/brcm80211/sys/wlc_mac80211.c
+index 3e31f89..6ed15ff 100644
+--- a/drivers/staging/brcm80211/sys/wlc_mac80211.c
++++ b/drivers/staging/brcm80211/sys/wlc_mac80211.c
+@@ -1725,8 +1725,8 @@ void *wlc_attach(void *wl, u16 vendor, u16 device, uint unit, bool piomode,
+ 	ASSERT(WSEC_MAX_DEFAULT_KEYS == WLC_DEFAULT_KEYS);
+ 
+ 	/* some code depends on packed structures */
+-	ASSERT(sizeof(struct ether_addr) == ETHER_ADDR_LEN);
+-	ASSERT(sizeof(struct ether_header) == ETHER_HDR_LEN);
++	ASSERT(sizeof(struct ether_addr) == ETH_ALEN);
++	ASSERT(sizeof(struct ethhdr) == ETH_HLEN);
+ 	ASSERT(sizeof(d11regs_t) == SI_CORE_SIZE);
+ 	ASSERT(sizeof(ofdm_phy_hdr_t) == D11_PHY_HDR_LEN);
+ 	ASSERT(sizeof(cck_phy_hdr_t) == D11_PHY_HDR_LEN);
+@@ -1838,7 +1838,7 @@ void *wlc_attach(void *wl, u16 vendor, u16 device, uint unit, bool piomode,
+ 	wlc_bmac_hw_etheraddr(wlc->hw, &wlc->perm_etheraddr);
+ 
+ 	bcopy((char *)&wlc->perm_etheraddr, (char *)&pub->cur_etheraddr,
+-	      ETHER_ADDR_LEN);
++	      ETH_ALEN);
+ 
+ 	for (j = 0; j < NBANDS(wlc); j++) {
+ 		/* Use band 1 for single band 11a */
+@@ -3604,7 +3604,7 @@ _wlc_ioctl(struct wlc_info *wlc, int cmd, void *arg, int len,
+ 					key.flags |= WL_PRIMARY_KEY;
+ 
+ 				bcopy(src_key->ea.octet, key.ea.octet,
+-				      ETHER_ADDR_LEN);
++				      ETH_ALEN);
+ 			}
+ 
+ 			bcopy((char *)&key, arg, sizeof(key));
+@@ -6035,7 +6035,7 @@ wlc_d11hdrs_mac80211(struct wlc_info *wlc, struct ieee80211_hw *hw,
+ 	txh->TxFesTimeFallback = htol16(0);
+ 
+ 	/* TxFrameRA */
+-	bcopy((char *)&h->a1, (char *)&txh->TxFrameRA, ETHER_ADDR_LEN);
++	bcopy((char *)&h->a1, (char *)&txh->TxFrameRA, ETH_ALEN);
+ 
+ 	/* TxFrameID */
+ 	txh->TxFrameID = htol16(frameid);
+@@ -6122,11 +6122,11 @@ wlc_d11hdrs_mac80211(struct wlc_info *wlc, struct ieee80211_hw *hw,
+ 
+ 		if (use_cts) {
+ 			rts->fc = htol16(FC_CTS);
+-			bcopy((char *)&h->a2, (char *)&rts->ra, ETHER_ADDR_LEN);
++			bcopy((char *)&h->a2, (char *)&rts->ra, ETH_ALEN);
+ 		} else {
+ 			rts->fc = htol16((u16) FC_RTS);
+ 			bcopy((char *)&h->a1, (char *)&rts->ra,
+-			      2 * ETHER_ADDR_LEN);
++			      2 * ETH_ALEN);
+ 		}
+ 
+ 		/* mainrate
+@@ -7642,9 +7642,9 @@ wlc_bcn_prb_template(struct wlc_info *wlc, uint type, ratespec_t bcn_rspec,
+ 	/* A1 filled in by MAC for prb resp, broadcast for bcn */
+ 	if (type == FC_BEACON)
+ 		bcopy((const char *)&ether_bcast, (char *)&h->da,
+-		      ETHER_ADDR_LEN);
+-	bcopy((char *)&cfg->cur_etheraddr, (char *)&h->sa, ETHER_ADDR_LEN);
+-	bcopy((char *)&cfg->BSSID, (char *)&h->bssid, ETHER_ADDR_LEN);
++		      ETH_ALEN);
++	bcopy((char *)&cfg->cur_etheraddr, (char *)&h->sa, ETH_ALEN);
++	bcopy((char *)&cfg->BSSID, (char *)&h->bssid, ETH_ALEN);
+ 
+ 	/* SEQ filled in by MAC */
+ 
+diff --git a/drivers/staging/brcm80211/util/bcmsrom.c b/drivers/staging/brcm80211/util/bcmsrom.c
+index 3a0beb9..3e76f4a 100644
+--- a/drivers/staging/brcm80211/util/bcmsrom.c
++++ b/drivers/staging/brcm80211/util/bcmsrom.c
+@@ -504,7 +504,7 @@ int srom_parsecis(struct osl_info *osh, u8 *pcis[], uint ciscnt, char **vars,
+ 					    && !(ETHER_ISNULLADDR(&cis[i + 2]))
+ 					    && !(ETHER_ISMULTI(&cis[i + 2]))) {
+ 						ASSERT(cis[i + 1] ==
+-						       ETHER_ADDR_LEN);
++						       ETH_ALEN);
+ 						snprintf(eabuf, sizeof(eabuf),
+ 							"%pM", &cis[i + 2]);
+ 
